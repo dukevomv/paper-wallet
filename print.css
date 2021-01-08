@@ -1,0 +1,10 @@
+
+.container{
+    width:100%;
+}
+.non-printable{
+    display:none!important;
+}
+.wallet:nth-child(4n){
+    margin-bottom: 15px;
+}

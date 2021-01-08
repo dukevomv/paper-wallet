@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Paper Wallets</title>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="main.css" type="text/css" media="all">
+        <link rel="stylesheet" href="print.css" type="text/css" media="print">
+        
+        <script src="/jquery-3.5.1.min.js"></script>
+        <script src="/qrcode.js"></script>
+    </head>
+    <body>
+        <div class="container printable-list">
+        </div>
+        <div class="tool-container non-printable">
+            <button onclick="createNewWallet()">+ Add wallet</button>
+            <button onclick="print()">Print</button>
+            <span class="project">Paper Wallets</span>
+            <br>
+            <hr>
+            <div class="wallet-list">
+            </div>
+        </div>
+        <script>
+        
+            wallets = {};
+            
+            $( document ).ready(function() {
+                createNewWallet();
+                $(document).on('change','.wallet-data .data-input',function(e){
+                    let code = $(this).closest('.wallet-data').attr('data-code');
+                    const field = $(this).attr('data-field');
+                    switch(field){
+                        case 'logo': 
+                            wallets[code].useEmoji = $('#data-'+code+' input[name=logo-'+code+']:checked').val() == 'emoji';
+                        default:
+                            wallets[code][field] = $(this).val();
+                        
+                    }
+                    updateWalletDOM(code);
+                });
+                $(document).on('click','.wallet-data button.remove-wallet',function(e){
+                    let code = $(this).parent('.wallet-data').attr('data-code');
+                    deleteWallet(code);
+                })
+            }); 
+            
+            function updateWalletDOM(code){
+                let item = $('.wallet#wallet-'+code);
+                let walletData = wallets[code];
+                wallets[code] = updateValues(walletData,item);
+            }
+            
+            function updateValues(walletData,walletElement){
+                walletData = updateQRcodes(walletData,walletElement);
+                walletElement.find('.name').text(walletData.name);
+                walletElement.find('.message').text(walletData.message);
+                walletElement.find('.coin').text(getCoinName(walletData.coin));
+                walletElement.find('.address').text(walletData.public_address);
+                walletElement.find('.secret').text(walletData.private_key);
+                
+                if(walletData.useEmoji){
+                    walletElement.find('.logo').addClass('emoji-enabled');
+                    walletElement.find('.logo .emoji').html(walletData.emoji);
+                } else {
+                    walletElement.find('.logo').removeClass('emoji-enabled');
+                }
+                return walletData;
+            }
+            
+            function updateQRcodes(walletData,walletElement){
+                if(walletData.publicQR){
+                    updateQRCode(walletData.publicQR,walletData.public_address);
+                } else {
+                    walletData.publicQR = constructQRCode(walletElement.find('.public .qr').get([0]),walletData.public_address);
+                }
+                if(walletData.privateQR){
+                    updateQRCode(walletData.privateQR,walletData.private_key);
+                } else {
+                    walletData.privateQR = constructQRCode(walletElement.find('.private .qr').get([0]),walletData.private_key);
+                }
+                return walletData;
+            }
+            
+            function updateQRCode(qrObject,text){
+                if(text == ''){
+                    return 0;
+                }
+                qrObject.clear();
+                qrObject.makeCode(text);
+            }
+            function constructQRCode(element,text){
+                if(text == ''){
+                    return null;
+                }
+                let qrObject = new QRCode(element, {
+                	text: text,
+                	width: 128,
+                	height: 128,
+                	colorDark : "#000000",
+                	colorLight : "#ffffff"
+                });
+                return qrObject;
+            }
+            
+            function createNewWallet(){
+                const code = Date.now();
+                wallets[code] = {
+                    public_address: '',
+                    private_key: '',
+                    emoji:'&#128050;',
+                    useEmoji: false,
+                    name: '',
+                    coin: 'BTC',
+                };
+                
+                let walletDOM = '<div class="wallet-data" id="data-'+code+'" data-code="'+code+'">\
+                    <select name="" class="data-input wallet-coin" data-field="coin">\
+                        <option value="BTC">BTC</option>\
+                        <option value="ETH">ETH</option>\
+                    </select>\
+                    <input type="text" class="data-input wallet-public" data-field="public_address" placeholder="Public Address"/>\
+                    <input type="text" class="data-input wallet-private" data-field="private_key" placeholder="Private Key"/>\
+                    <br>\
+                    <input type="text" class="data-input wallet-name" data-field="name" placeholder="Wallet Name"/>\
+                    <input type="text" class="data-input wallet-message" data-field="message" placeholder="Message"/>\
+                    <br>\
+                    <label><input type="radio" class="data-input" data-field="logo" value="coin" name="logo-'+code+'" checked> Coin Logo</label>\
+                    <br>\
+                    <label><input type="radio" class="data-input" data-field="logo" value="emoji" name="logo-'+code+'"> Emoji </label>\
+                    <input type="text" class="data-input wallet-emoji" data-field="emoji" placeholder="Paste emoji here" size="2" value="🐲"/> <span class="small">Copy and paste any emoji from <a href="https://emojipedia.org/" target="_blank">Emojipedia</a></span>\
+                    <br>\
+                    <button class="remove-wallet">Remove</button>\
+                    <br><hr>\
+                </div>';
+                $('.wallet-list').append(walletDOM);
+                
+                const IconDOM = '<span class="logo"><span class="emoji">'+wallets[code].emoji+'</span><img src="/bitcoin.png" alt=""></span>';
+                    publicIconDOM = '<span class="logo">'+wallets[code].emoji+'</span>'
+                
+                let printableWalletDOM = '<div class="wallet" id="wallet-'+code+'">\
+                    <div class="public">\
+                        <div class="left-side">\
+                            <span class="name"></span>\
+                            <span class="coin">Bitcoin - BTC</span>'+IconDOM+'\
+                            <span class="message micro-text"></span>\
+                            <span class="title">PUBLIC KEY</span>\
+                        </div>\
+                        <div class="qr"></div>\
+                        <span class="address"></span>\
+                    </div>\
+                    <div class="private">\
+                        <div class="left-side">\
+                            <span class="name"></span>\
+                            <span class="coin">Bitcoin - BTC</span>'+IconDOM+'\
+                            <span class="address micro-text"></span>\
+                            <span class="title">PRIVATE KEY</span>\
+                        </div>\
+                        <div class="qr"></div>\
+                        <span class="secret"></span>\
+                    </div>\
+                </div>';
+                $('.printable-list').append(printableWalletDOM);
+            }
+            
+            function deleteWallet(code){
+                delete wallets.code;
+                $('.wallet-list .wallet-data#data-'+code).remove();
+                $('.printable-list .wallet#wallet-'+code).remove();
+            }
+            
+            const coinData = {
+                BTC: {
+                    name: 'Bitcoin - BTC'
+                },
+                ETH: {
+                    name: 'Ethereum - ETH'
+                },
+            }
+            function getCoinName(coin){
+                return coinData[coin].name;
+            }
+</script>
+    </body>
+</html>
